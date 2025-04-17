@@ -55,5 +55,10 @@ This can help in:
 
 To run the code (for demo purposes only):
 
-```bash
-go run main.go
+```go run main.go```
+
+---
+
+## 🚀 Motivation
+
+https://ampcode.com/how-to-build-an-agent
