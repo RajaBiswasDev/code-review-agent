@@ -56,4 +56,4 @@ This can help in:
 To run the code (for demo purposes only):
 
 ```bash
-go run bad_example.go
+go run main.go
