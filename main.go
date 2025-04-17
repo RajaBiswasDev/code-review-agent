@@ -31,7 +31,7 @@ func main() {
 		return scanner.Text(), true
 	}
 
-	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition, EditFileDefinition}
+	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition, EditFileDefinition, CreateCodeReviewTool(&client)}
 	agent, error := NewAgent(&client, getUserMessage, tools)
 
 	if error == nil {
@@ -44,37 +44,15 @@ func main() {
 	}
 }
 
-func defaultSystemMessageHandler(userInput string) *anthropic.MessageParam {
-	reviewPhrases := []string{
-		"can you review", "what do you think", "any feedback", "suggest improvements", "review this",
-		"feedback on this", "is this okay", "can this be improved", "your thoughts on",
-	}
-
-	lowerInput := strings.ToLower(userInput)
-	for _, phrase := range reviewPhrases {
-		if strings.Contains(lowerInput, phrase) {
-			return &anthropic.MessageParam{
-				Role: anthropic.MessageParamRoleAssistant,
-				Content: []anthropic.ContentBlockParamUnion{
-					anthropic.NewTextBlock(codeReviewSystemPrompt),
-				},
-			}
-		}
-	}
-
-	return nil
-}
-
 // NewAgent creates a new Agent instance
 func NewAgent(client *anthropic.Client, getUserMessage func() (string, bool), tools []ToolDefinition) (*Agent, error) {
 	if client == nil {
 		return nil, fmt.Errorf("client cannot be nil")
 	}
 	return &Agent{
-		client:           client,
-		getUserMessage:   getUserMessage,
-		getSystemMessage: defaultSystemMessageHandler,
-		tools:            tools,
+		client:         client,
+		getUserMessage: getUserMessage,
+		tools:          tools,
 	}, nil
 }
 
@@ -105,11 +83,6 @@ func (a *Agent) Run(ctx context.Context) error {
 			userInput, ok := a.getUserMessage()
 			if !ok {
 				break
-			}
-
-			// Inject system message if the input implies a review
-			if systemMsg := a.getSystemMessage(userInput); systemMsg != nil {
-				conversation = append(conversation, *systemMsg)
 			}
 
 			userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
@@ -370,3 +343,51 @@ func createNewFile(filePath, content string) (string, error) {
 }
 
 // Edit file END
+
+// Code review START
+type CodeReviewInput struct {
+	Path string `json:"path" jsonschema_description:"Path of the file to review"`
+}
+
+var CodeReviewInputSchema = GenerateSchema[CodeReviewInput]()
+
+func CreateCodeReviewTool(client *anthropic.Client) ToolDefinition {
+	return ToolDefinition{
+		Name:        "code_review",
+		Description: "Reviews code from a given file and provides feedback on improvements.",
+		InputSchema: CodeReviewInputSchema,
+		Function: func(input json.RawMessage) (string, error) {
+			return PerformCodeReview(client, input)
+		},
+	}
+}
+
+func PerformCodeReview(client *anthropic.Client, input json.RawMessage) (string, error) {
+	reviewInput := CodeReviewInput{}
+	err := json.Unmarshal(input, &reviewInput)
+	if err != nil {
+		return "", err
+	}
+
+	codeContent, err := os.ReadFile(reviewInput.Path)
+	if err != nil {
+		return "", err
+	}
+
+	prompt := codeReviewSystemPrompt + ":\n\n:" + string(codeContent)
+
+	msg, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaude3_5Sonnet20241022,
+		MaxTokens: defaultMaxTokens,
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return msg.RawJSON(), nil
+}
+
+// Code review END
