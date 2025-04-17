@@ -2,67 +2,57 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 )
 
-// CHANGE: Moved global variables into the functions where they are used
-// and made them constants where appropriate
 const (
-	thresholdValue = 10
-	loopCount     = 5
+	maxIterations = 5
+	outputFile    = "output.txt"
 )
 
-// CHANGE: Renamed function to be more descriptive of its purpose
-func processNumbersAndPrint() {
-	// CHANGE: Moved variables into function scope
-	x := 5
-	y := 10
-	
-	sum := x + y
-	if sum > thresholdValue {
+// processNumbers performs arithmetic and prints number classifications
+func processNumbers(first, second int) {
+	sum := first + second
+	if sum > 10 {
 		fmt.Println("big num")
 	}
-	
-	// CHANGE: Added comment explaining the purpose of this loop
-	// Print numbers from 0 to loopCount-1
-	for i := 0; i < loopCount; i++ {
+
+	for i := 0; i < maxIterations; i++ {
 		fmt.Println("number:", i)
 	}
 
-	// CHANGE: Using more idiomatic Go with range loop
 	numbers := []int{1, 2, 3, 4, 5}
 	for _, num := range numbers {
-		// CHANGE: Simplified even/odd check using string format
-		evenOdd := "odd"
 		if num%2 == 0 {
-			evenOdd = "even"
+			fmt.Println("even", num)
+		} else {
+			fmt.Println("odd", num)
 		}
-		fmt.Printf("%s %d\n", evenOdd, num)
 	}
 }
 
-// CHANGE: Added proper error handling and documentation
-// writeToFile creates output.txt and writes a test message to it
+// writeToFile writes a test message to the specified file
 func writeToFile() error {
-	f, err := os.Create("output.txt")
+	f, err := os.Create(outputFile)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to create file: %v", err)
 	}
 	defer f.Close()
 
-	_, err = f.WriteString("this is a test\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
+	if _, err := f.WriteString("this is a test\n"); err != nil {
+		return fmt.Errorf("failed to write to file: %v", err)
 	}
 	return nil
 }
 
-// CHANGE: Updated test function to handle errors
-func test() {
-	processNumbersAndPrint()
+// runTests executes the main program logic
+func runTests() error {
+	processNumbers(5, 10)
+
 	if err := writeToFile(); err != nil {
-		log.Printf("Error writing to file: %v", err)
+		return err
 	}
+
 	fmt.Println("done")
+	return nil
 }
